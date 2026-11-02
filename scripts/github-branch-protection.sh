@@ -43,12 +43,15 @@ if [ "$HTTP" = "200" ]; then
 import json
 r = json.load(open('/tmp/gh-protection.json'))
 rc = r.get('required_status_checks') or {}
+def flag(k):
+    v = r.get(k)
+    return v.get('enabled') if isinstance(v, dict) else v
 print('   checks requeridos :', rc.get('contexts'), '| strict:', rc.get('strict'))
-print('   force-pushes      :', 'bloqueados' if r.get('allow_force_pushes') is False else 'permitidos')
-print('   borrar rama       :', 'bloqueado' if r.get('allow_deletions') is False else 'permitido')
-print('   resolver comentarios:', r.get('required_conversation_resolution'))
-print('   historial lineal  :', r.get('required_linear_history'))
-print('   bloquear admins   :', bool(r.get('enforce_admins')))"
+print('   force-pushes      :', 'bloqueados' if flag('allow_force_pushes') is False else 'PERMITIDOS')
+print('   borrar rama       :', 'bloqueado' if flag('allow_deletions') is False else 'PERMITIDO')
+print('   resolver comentarios:', bool(flag('required_conversation_resolution')))
+print('   historial lineal  :', bool(flag('required_linear_history')))
+print('   bloquear admins   :', bool(flag('enforce_admins')))"
 else
   echo "❌ HTTP $HTTP — respuesta:"
   head -c 400 /tmp/gh-protection.json; echo
