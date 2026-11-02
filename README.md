@@ -2,7 +2,7 @@
 
 > **Bandeja única multicanal · Enrutamiento inteligente · Copiloto IA · Portal de cliente en tiempo real**
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black) ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6) ![Prisma](https://img.shields.io/badge/Prisma-6-2d3748) ![Socket.io](https://img.shields.io/badge/Socket.io-4-white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8) ![License](https://img.shields.io/badge/License-MIT-green)
+[![CI](https://github.com/Peiboll17/helpdesk/actions/workflows/ci.yml/badge.svg)](https://github.com/Peiboll17/helpdesk/actions/workflows/ci.yml) ![Next.js](https://img.shields.io/badge/Next.js-16-black) ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6) ![Prisma](https://img.shields.io/badge/Prisma-6-2d3748) ![Socket.io](https://img.shields.io/badge/Socket.io-4-white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8) ![License](https://img.shields.io/badge/License-MIT-green)
 
 NexoDesk es un sistema de soporte (helpdesk) que convierte el caos de canales (email, formulario web, WhatsApp y chat en vivo) en **una sola bandeja priorizada**, automatiza la triaje con reglas **Zero-Touch** y ayuda al agente con un **Copiloto IA** que redacta respuestas a partir de la Base de Conocimiento.
 

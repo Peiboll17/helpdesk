@@ -16,6 +16,8 @@ Gracias por tu interés 🙌. La interfaz y los mensajes están en **español de
    ```
 4. Abre un Pull Request describiendo el *qué* y el *porqué*.
 
+> 🤖 El **CI** (GitHub Actions, [`.github/workflows/ci.yml`](.github/workflows/ci.yml)) ejecuta `lint` + `build` automáticamente en cada push y PR sobre `main`; el PR no se acepta en rojo.
+
 ## Convención de commits
 
 Seguimos [Conventional Commits](https://www.conventionalcommits.org/es/):
