@@ -24,7 +24,9 @@ EnvironmentFile=/opt/nexodesk/.env
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOSTNAME=127.0.0.1
-ExecStart=/usr/bin/node .next/standalone/server.js
+# El contenido de .next/standalone/ se sube PLANO a current/
+# (deploy.sh / scp): server.js queda en la raíz de WorkingDirectory.
+ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=5
 
