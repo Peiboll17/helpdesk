@@ -1,0 +1,31 @@
+# ============================================================
+# NexoDesk · servicio systemd del realtime (Socket.io)
+# ------------------------------------------------------------
+# Sirve el WebSocket del navegador (puerto 3003) y el canal
+# interno de emisión HTTP que usan las API (puerto 3010).
+# SOCKET_PATH debe coincidir con NEXT_PUBLIC_SOCKET_PATH del
+# frontend compilado (deploy/deploy.sh ya los alinea).
+# ============================================================
+[Unit]
+Description=NexoDesk Realtime (Socket.io)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nexodesk
+Group=nexodesk
+WorkingDirectory=/opt/nexodesk/current/realtime
+Environment=NODE_ENV=production
+Environment=SOCKET_PATH=/socket.io
+ExecStart=/usr/local/bin/bun index.ts
+Restart=always
+RestartSec=5
+
+MemoryMax=150M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

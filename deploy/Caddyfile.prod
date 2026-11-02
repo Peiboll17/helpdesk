@@ -1,0 +1,43 @@
+# ============================================================
+# NexoDesk · Caddy de producción (varias webs en una sola VPS)
+# ------------------------------------------------------------
+# Copia a /etc/caddy/Caddyfile, edita los dominios y recarga:
+#     sudo systemctl reload caddy
+# Caddy emite y renueva el certificado HTTPS (Let's Encrypt)
+# automáticamente para cada dominio. Solo necesitas los puertos
+# 80 y 443 abiertos en el firewall de GCP.
+# ============================================================
+
+{
+    email tu-correo@tudominio.com
+}
+
+# ── NexoDesk · Helpdesk ──────────────────────────────────────────────
+ayuda.tudominio.com {
+	# WebSocket (chat en vivo + eventos de la bandeja) → mini-servicio
+	handle /socket.io* {
+		reverse_proxy 127.0.0.1:3003
+	}
+
+	# Aplicación Next.js (standalone)
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}
+
+# ── Otras webs en la misma VPS: un bloque por dominio ────────────────
+# Ejemplo A · otra app Node/Next en otro puerto:
+# web2.tudominio.com {
+# 	reverse_proxy 127.0.0.1:4000
+# }
+#
+# Ejemplo B · web estática o PHP servida desde disco:
+# web3.tudominio.com {
+# 	root * /var/www/web3
+# 	encode gzip
+# 	php_fastcgi unix//run/php/php8.2-fpm.sock
+# 	file_server
+# }
+#
+# Cada dominio nuevo solo necesita: 1) su registro DNS A apuntando
+# a la misma IP externa, 2) su bloque aquí, 3) reload de Caddy.

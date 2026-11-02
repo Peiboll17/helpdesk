@@ -1,0 +1,128 @@
+// ============================================================
+// NexoDesk · Esquema de PRODUCCIÓN (MySQL 8 / MariaDB)
+// ------------------------------------------------------------
+// Para VPS que ya corre MySQL (p. ej. e2-micro free tier de GCP
+// con varias webs). Misma forma que schema.prisma (SQLite dev)
+// con tres diferencias:
+//   · provider = "mysql"  (los String sin anotación son
+//     VARCHAR(191) en MySQL → los textos largos llevan @db.Text
+//     y los que miden hasta 200-255 caracteres, @db.VarChar(255))
+//   · Ticket.customerPhone índice para el matching de WhatsApp
+//   · Sin columna embedding: la búsqueda semántica pgvector es
+//     exclusiva de PostgreSQL. Aquí actúa automáticamente el
+//     motor léxico de src/lib/search.ts (el conmutador de
+//     src/lib/kb-search.ts solo activa pgvector con DATABASE_URL
+//     postgres://, así que no hay que tocar nada de código).
+//
+// Uso (ver docs/DESPLIEGUE.md):
+//   1. CREATE DATABASE helpdesk CHARACTER SET utf8mb4
+//      COLLATE utf8mb4_unicode_ci;
+//   2. DATABASE_URL="mysql://usuario:clave@localhost:3306/helpdesk"
+//   3. bunx prisma db push --schema prisma/schema.mysql.prisma
+//   4. bun run db:seed   ·  bun run dev (o build + systemd)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  specialties String   // "finanzas,general"
+  color       String   @default("#10b981")
+  isActive    Boolean  @default(true)
+  tickets     Ticket[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Ticket {
+  id              String    @id @default(cuid())
+  ref             String    @unique // TCK-1001 (visible al cliente)
+  subject         String    @db.VarChar(255)
+  description     String    @db.Text
+  status          String    @default("ABIERTO") // ABIERTO | EN_ESPERA | RESUELTO | CERRADO
+  priority        String    @default("MEDIA") // BAJA | MEDIA | ALTA | CRITICA
+  source          String    @default("EMAIL") // EMAIL | FORMULARIO_WEB | WHATSAPP | CHAT_EN_VIVO
+  category        String    @default("GENERAL") // FINANZAS | TECNICO | CUENTAS | GENERAL
+  customerName    String    @db.VarChar(255)
+  customerEmail   String
+  customerPhone   String?   // canal WhatsApp (formato E.164)
+  assigneeId      String?
+  assignee        Agent?    @relation(fields: [assigneeId], references: [id])
+  routingReason   String?   @db.Text // explicación del motor de enrutamiento
+  firstResponseAt DateTime? // SLA: primera respuesta del agente
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  csatScore       Int?      // 1 = Triste, 2 = Neutral, 3 = Feliz
+  csatComment     String?   @db.Text
+  csatSentAt      DateTime?
+  visitorId       String?   // identificador del chat en vivo (Socket.io)
+  messages        Message[]
+  notes           InternalNote[]
+  emails          EmailLog[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([assigneeId])
+  @@index([source])
+  @@index([customerEmail])
+  @@index([customerPhone])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorType String
+  authorName String   @db.VarChar(255)
+  body       String   @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model InternalNote {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorName String   @db.VarChar(255)
+  body       String   @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model KBArticle {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String   @db.VarChar(255)
+  content   String   @db.Text
+  tags      String   @default("") // "pagos,facturación"
+  keywords  String   @default("") // sinónimos extra para la búsqueda
+  views     Int      @default(0)  // veces que resolvió una duda (deflexión)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  toEmail   String
+  subject   String   @db.VarChar(255)
+  body      String   @db.Text
+  kind      String // TICKET_CREATED | AGENT_REPLY | CSAT_REQUEST | STATUS_CHANGE
+  ticketId  String?
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  provider  String   @default("sendgrid-simulado")
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}

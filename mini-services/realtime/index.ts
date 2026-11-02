@@ -16,8 +16,10 @@ import { Server } from 'socket.io'
 const httpServer = createServer()
 
 const io = new Server(httpServer, {
-  // DO NOT change the path, it is used by Caddy to forward the request to the correct port
-  path: '/',
+  // Path configurable: '/' en el sandbox (Caddy con XTransformPort),
+  // '/socket.io' en la VPS de producción (deploy/Caddyfile.prod).
+  // Debe coincidir con NEXT_PUBLIC_SOCKET_PATH del frontend.
+  path: process.env.SOCKET_PATH ?? '/',
   cors: {
     origin: '*',
     methods: ['GET', 'POST'],

@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query'
 import { io } from 'socket.io-client'
+import { SOCKET_URL, SOCKET_PATH } from '@/lib/socket-url'
 import { toast } from 'sonner'
 import { Inbox, BookOpen, BarChart3, UserRound, Send, HelpCircle, Radio } from 'lucide-react'
 import { api, type AgentDTO, type EmailLogDTO } from '@/lib/client-types'
@@ -145,7 +146,8 @@ function Shell() {
 
   // Conexión única de tiempo real: cualquier cambio invalida cachés
   useEffect(() => {
-    const instance = io('/?XTransformPort=3003', {
+    const instance = io(SOCKET_URL, {
+      path: SOCKET_PATH,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,

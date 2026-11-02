@@ -93,7 +93,7 @@ Sin Caddy la aplicación funciona igual (creación, bandeja, KB, CSAT…), solo 
 ## 🗂️ Estructura del proyecto
 
 ```
-├── prisma/                    # schema.prisma (SQLite dev) + schema.postgres.prisma (pgvector) + seed
+├── prisma/                    # schema.prisma (SQLite dev) + schema.postgres.prisma (pgvector) + schema.mysql.prisma (VPS) + seed
 ├── src/
 │   ├── app/
 │   │   ├── api/               # tickets, portal, kb, stats, emails, csat, agents…
@@ -104,8 +104,9 @@ Sin Caddy la aplicación funciona igual (creación, bandeja, KB, CSAT…), solo 
 │   └── lib/                   # routing · ai · search · kb-search · embeddings · intake
 │       └── providers/         # email (SendGrid) y whatsapp (Twilio) — modo real o simulado
 ├── mini-services/realtime/    # mini-servicio Socket.io (puerto 3003)
+├── deploy/                    # producción VPS: deploy.sh, Caddyfile.prod, unidades systemd
 ├── Caddyfile                  # gateway :81 (WebSocket → Next + Socket.io)
-└── docs/                      # arquitectura · integraciones · migración PostgreSQL
+└── docs/                      # arquitectura · integraciones · despliegue VPS · migración PostgreSQL
 ```
 
 ## 🗺️ Roadmap
@@ -117,6 +118,7 @@ Sin Caddy la aplicación funciona igual (creación, bandeja, KB, CSAT…), solo 
 - [x] CRUD completo de la Base de Conocimiento desde la UI
 - [x] Integraciones reales con **Twilio WhatsApp** y **SendGrid** + webhooks entrantes (activación por variables de entorno, modo simulado sin credenciales) — guía en [docs/INTEGRACIONES.md](docs/INTEGRACIONES.md)
 - [x] **PostgreSQL + pgvector**: esquema, motor de búsqueda vectorial y backfill listos (activación por env) — guía en [docs/MIGRACION-POSTGRES.md](docs/MIGRACION-POSTGRES.md)
+- [x] **Despliegue en VPS free tier con MySQL** (e2-micro GCP): kit completo `deploy/` (build local + rsync + systemd + Caddy multi-dominio) — guía en [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md)
 - [ ] Reportes avanzados y SLA configurables
 - [ ] Autenticación multi-rol (agente / admin / cliente)
 

@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { io, type Socket } from 'socket.io-client'
+import { SOCKET_URL, SOCKET_PATH } from '@/lib/socket-url'
 import { toast } from 'sonner'
 import { Sparkles, ThumbsUp, ThumbsDown, Send, Loader2, PartyPopper, Clock, CheckCircle2, Lock } from 'lucide-react'
 import { api, type KBArticleDTO, type KBSearchResult, type PortalTicketDTO } from '@/lib/client-types'
@@ -341,7 +342,8 @@ function LiveChat({ name, email, identityReady }: { name: string; email: string;
 
   const startChat = () => {
     setConnecting(true)
-    const instance = io('/?XTransformPort=3003', {
+    const instance = io(SOCKET_URL, {
+      path: SOCKET_PATH,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
