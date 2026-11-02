@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { emitEvent } from '@/lib/realtime'
+import { deliverEmail } from '@/lib/providers/email'
+import { sendWhatsApp } from '@/lib/providers/whatsapp'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +64,23 @@ export async function POST(request: NextRequest, { params }: Params) {
   // ⚡ Tiempo real
   await emitEvent('tickets:changed', { id, ref: ticket.ref })
   await emitEvent('ticket:updated', { id, ref: ticket.ref })
+
+  // Entrega real al cliente (si hay credenciales configuradas):
+  //  · Email (SendGrid) para cualquier canal
+  //  · WhatsApp (Twilio) si el ticket entró por WhatsApp
+  if (authorType === 'AGENT') {
+    void deliverEmail({
+      to: ticket.customerEmail,
+      subject: `Re: ${ticket.subject} · ${ticket.ref}`,
+      body: message.body,
+      kind: 'AGENT_REPLY',
+      ref: ticket.ref,
+    })
+    if (ticket.source === 'WHATSAPP' && ticket.customerPhone) {
+      void sendWhatsApp(ticket.customerPhone, message.body)
+    }
+  }
+
   if (ticket.source === 'CHAT_EN_VIVO' && ticket.visitorId) {
     await emitEvent(
       'chat:agent-message',

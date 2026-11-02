@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { routeTicket, type AgentCandidate } from '@/lib/routing'
-import { emitEvent } from '@/lib/realtime'
+import { createRoutedTicket } from '@/lib/intake'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +64,8 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/tickets → crea ticket + AUTOMATIZACIÓN 1: enrutamiento Zero-Touch
+// (la lógica compartida vive en src/lib/intake.ts, la misma que usan los
+//  webhooks de email y WhatsApp)
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   if (!body?.subject || !body?.description || !body?.customerName || !body?.customerEmail) {
@@ -78,74 +79,15 @@ export async function POST(request: NextRequest) {
     ? body.source
     : 'FORMULARIO_WEB'
 
-  // Agentes activos con su carga abierta (para el balanceo)
-  const agents = await db.agent.findMany({ where: { isActive: true } })
-  const openCounts = await db.ticket.groupBy({
-    by: ['assigneeId'],
-    where: { status: { in: ['ABIERTO', 'EN_ESPERA'] }, assigneeId: { not: null } },
-    _count: { _all: true },
+  const { ticket } = await createRoutedTicket({
+    subject: String(body.subject),
+    description: String(body.description),
+    customerName: String(body.customerName),
+    customerEmail: String(body.customerEmail),
+    customerPhone: body.customerPhone ?? null,
+    source,
+    visitorId: body.visitorId ?? null,
   })
-  const loadMap = new Map(openCounts.map((c) => [c.assigneeId, c._count._all]))
-  const candidates: AgentCandidate[] = agents.map((a) => ({
-    id: a.id,
-    name: a.name,
-    specialties: a.specialties,
-    isActive: a.isActive,
-    openLoad: loadMap.get(a.id) ?? 0,
-  }))
-
-  // 🧠 Motor Zero-Touch: clasifica + prioriza + asigna sin intervención manual
-  const decision = routeTicket({ subject: body.subject, description: body.description, source }, candidates)
-
-  // Referencia correlativa
-  const last = await db.ticket.findFirst({ orderBy: { ref: 'desc' }, select: { ref: true } })
-  const nextNum = last ? parseInt(last.ref.replace('TCK-', ''), 10) + 1 : 1001
-  const ref = `TCK-${nextNum}`
-
-  const ticket = await db.ticket.create({
-    data: {
-      ref,
-      subject: String(body.subject).slice(0, 200),
-      description: String(body.description).slice(0, 4000),
-      source,
-      status: 'ABIERTO',
-      priority: decision.priority,
-      category: decision.category,
-      customerName: String(body.customerName).slice(0, 120),
-      customerEmail: String(body.customerEmail).slice(0, 160),
-      assigneeId: decision.assigneeId,
-      routingReason: decision.reason,
-      visitorId: body.visitorId ?? null,
-      messages: {
-        create: [
-          {
-            authorType: 'CUSTOMER',
-            authorName: String(body.customerName),
-            body: String(body.description).slice(0, 4000),
-          },
-          {
-            authorType: 'SYSTEM',
-            authorName: 'Motor Zero-Touch',
-            body: `🎫 Ticket creado desde ${source.replace('_', ' ')} · Enrutado automáticamente: ${decision.reason}`,
-          },
-        ],
-      },
-      emails: {
-        create: {
-          toEmail: String(body.customerEmail),
-          subject: `Hemos recibido tu solicitud · ${ref}`,
-          body: `Hola ${body.customerName}, tu ticket ${ref} "${body.subject}" ha sido recibido${
-            decision.assigneeId ? ' y asignado a nuestro equipo' : ''
-          }. Te responderemos lo antes posible. — NexoDesk`,
-          kind: 'TICKET_CREATED',
-        },
-      },
-    },
-    include: { assignee: { select: { id: true, name: true, color: true } } },
-  })
-
-  await emitEvent('ticket:new', { id: ticket.id, ref: ticket.ref, subject: ticket.subject })
-  await emitEvent('tickets:changed', { ref: ticket.ref })
 
   return NextResponse.json(ticket, { status: 201 })
 }

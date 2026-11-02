@@ -93,17 +93,19 @@ Sin Caddy la aplicación funciona igual (creación, bandeja, KB, CSAT…), solo 
 ## 🗂️ Estructura del proyecto
 
 ```
-├── prisma/                    # schema.prisma + seed de datos demo
+├── prisma/                    # schema.prisma (SQLite dev) + schema.postgres.prisma (pgvector) + seed
 ├── src/
 │   ├── app/
 │   │   ├── api/               # tickets, portal, kb, stats, emails, csat, agents…
+│   │   │   └── webhooks/      # whatsapp (Twilio) y email-inbound (SendGrid Inbound Parse)
 │   │   └── page.tsx           # monta HelpdeskApp
-│   ├── components/helpdesk/   # Inbox, TicketDetail, Portal, Dashboard, KB
+│   ├── components/helpdesk/   # Inbox, TicketDetail, Portal, Dashboard, KB (CRUD)
 │   ├── hooks/                 # useToast, use-mobile
-│   └── lib/                   # routing · ai · search · constants · db · realtime
+│   └── lib/                   # routing · ai · search · kb-search · embeddings · intake
+│       └── providers/         # email (SendGrid) y whatsapp (Twilio) — modo real o simulado
 ├── mini-services/realtime/    # mini-servicio Socket.io (puerto 3003)
 ├── Caddyfile                  # gateway :81 (WebSocket → Next + Socket.io)
-└── docs/                      # arquitectura y media del README
+└── docs/                      # arquitectura · integraciones · migración PostgreSQL
 ```
 
 ## 🗺️ Roadmap
@@ -112,9 +114,9 @@ Sin Caddy la aplicación funciona igual (creación, bandeja, KB, CSAT…), solo 
 - [x] **MVP 2 — CSAT** de un clic (Feliz / Neutral / Triste) al resolver
 - [x] Zero-Touch: enrutamiento por carga/especialidad, Copiloto IA, deflexión con KB
 - [x] Chat en vivo con creación automática de tickets (Socket.io)
-- [ ] Integraciones reales: Twilio WhatsApp · SendGrid/SES con webhooks entrantes
-- [ ] PostgreSQL + pgvector (embeddings reales para la búsqueda semántica)
-- [ ] Gestión completa de la KB desde la UI (CRUD + versionado)
+- [x] CRUD completo de la Base de Conocimiento desde la UI
+- [x] Integraciones reales con **Twilio WhatsApp** y **SendGrid** + webhooks entrantes (activación por variables de entorno, modo simulado sin credenciales) — guía en [docs/INTEGRACIONES.md](docs/INTEGRACIONES.md)
+- [x] **PostgreSQL + pgvector**: esquema, motor de búsqueda vectorial y backfill listos (activación por env) — guía en [docs/MIGRACION-POSTGRES.md](docs/MIGRACION-POSTGRES.md)
 - [ ] Reportes avanzados y SLA configurables
 - [ ] Autenticación multi-rol (agente / admin / cliente)
 

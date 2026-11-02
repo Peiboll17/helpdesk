@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { searchArticles } from '@/lib/search'
+import { searchKB } from '@/lib/kb-search'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ mode: 'list', results: articles.map((a) => ({ article: a, score: 1 })) })
   }
 
-  const articles = await db.kBArticle.findMany()
-  const results = searchArticles(q, articles, 5)
+  // Búsqueda semántica: pgvector en producción · motor léxico local en desarrollo
+  const results = await searchKB(q, 5)
 
   // Búsqueda también por texto directo en título (fallback)
   if (results.length === 0) {

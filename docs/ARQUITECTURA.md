@@ -36,7 +36,7 @@ flowchart LR
 
 | Modelo | Representa | Campos clave |
 |---|---|---|
-| `Ticket` | La unidad central | `ref` (TCK-1001), `status`, `priority`, `source`, `category`, `routingReason`, `assigneeId`, `firstResponseAt`, `csatScore` |
+| `Ticket` | La unidad central | `ref` (TCK-1001), `status`, `priority`, `source`, `category`, `routingReason`, `assigneeId`, `customerPhone`, `firstResponseAt`, `csatScore` |
 | `Message` | Hilo cliente ↔ agente | `authorType` (CUSTOMER / AGENT / SYSTEM), `body` |
 | `InternalNote` | Notas internas del equipo | `authorName`, `body` — nunca se muestran al cliente |
 | `KBArticle` | Artículos de ayuda / FAQ | `slug`, `tags`, `keywords`, `views` (deflexiones logradas) |
@@ -103,11 +103,14 @@ Al pasar a **RESUELTO** ocurren tres cosas automáticamente: se sella `resolvedA
 | `/api/tickets/[id]/ai-draft` | POST | Borrador del Copiloto IA |
 | `/api/tickets/[id]/simulate-reply` | POST | Simular respuesta del cliente (demo/testing) |
 | `/api/portal` | POST | Crear ticket desde formulario/chat + sugerencias de deflexión |
-| `/api/kb` · `/api/kb/[id]` | GET | Artículos · búsqueda semántica (`?q=`) |
+| `/api/kb` · `/api/kb/[id]` | GET · POST · PATCH · DELETE | Artículos, búsqueda semántica (`?q=`), CRUD completo de la KB y contador de deflexiones |
 | `/api/stats` | GET | KPIs del dashboard |
 | `/api/emails` | GET | Bandeja de salida simulada |
 | `/api/agents` | GET | Agentes y carga |
 | `/api/csat` | POST | Registrar valoración Feliz / Neutral / Triste |
+| `/api/webhooks/whatsapp` | POST | Webhook entrante de Twilio (verifica `X-Twilio-Signature`) → ticket Zero-Touch o continúa el hilo por `customerPhone` |
+| `/api/webhooks/email-inbound` | POST | Webhook Inbound Parse de SendGrid (protegido con `?secret=`) → ticket Zero-Touch o continúa el hilo por email |
+| `/api/integrations/status` | GET | Estado de adaptadores (SendGrid/Twilio), webhooks y motor de búsqueda |
 
 ## 6. Tiempo real (mini-servicio Socket.io)
 
@@ -115,6 +118,30 @@ Al pasar a **RESUELTO** ocurren tres cosas automáticamente: se sella `resolvedA
 - El backend publica vía `POST /emit` al bus interno (**:3010**).
 - Salas por agente; eventos principales: `ticket:nuevo`, `mensaje:nuevo`, `toast` (avisos en la bandeja).
 - La app **degrada con elegancia**: sin tiempo real, todo lo demás sigue funcionando.
+
+## 6-bis. Integraciones multicanal (adaptadores + webhooks)
+
+El principio es **degradación elegante por configuración**: sin credenciales todo queda registrado (modo demo); al definir variables de entorno los envíos son reales sin cambiar código.
+
+```
+Salida   · src/lib/providers/email.ts    (SendGrid v3 si hay SENDGRID_API_KEY; si no, simulado)
+         · src/lib/providers/whatsapp.ts (Twilio REST si hay TWILIO_*; si no, solo hilo)
+Entrada  · src/lib/intake.ts             (find-or-create: continúa el hilo abierto del cliente
+                                          o crea ticket con el motor Zero-Touch)
+         · /api/webhooks/whatsapp        (firma X-Twilio-Signature, auto-respuesta con el ref)
+         · /api/webhooks/email-inbound   (Inbound Parse, secret compartido)
+```
+
+El matching de hilos: por `customerEmail` (email) o `customerPhone` (WhatsApp, campo nuevo del modelo Ticket). Las respuestas del agente salen además por WhatsApp cuando el ticket entró por ese canal. Guía completa: `docs/INTEGRACIONES.md`.
+
+## 6-ter. Búsqueda de la KB · conmutador de motor
+
+`src/lib/kb-search.ts` expone `searchKB()` (misma interfaz para deflexión y copiloto):
+
+- **Producción** (`KB_SEARCH=pgvector` + `DATABASE_URL` postgres): similitud coseno con pgvector (`embedding <=> consulta`), embeddings de un endpoint compatible OpenAI (`src/lib/embeddings.ts`), backfill con `npm run kb:backfill`.
+- **Desarrollo / fallback**: motor léxico-semántico local (`search.ts`) sin dependencias.
+
+Esquema PostgreSQL en `prisma/schema.postgres.prisma` (campo `Unsupported("vector(1536)")` + índice HNSW en `prisma/pg-init.sql`). Guía: `docs/MIGRACION-POSTGRES.md`.
 
 ## 7. Estrategia MVP implementada
 
@@ -125,8 +152,8 @@ Al pasar a **RESUELTO** ocurren tres cosas automáticamente: se sella `resolvedA
 
 ## 8. Camino a producción
 
-1. **Base de datos** — PostgreSQL 16 + pgvector: cambiar el `provider` en `schema.prisma`, convertir los `String` de dominio a enums y sustituir el motor de `search.ts` por embeddings (la interfaz ya está aislada).
-2. **Canales reales** — Twilio WhatsApp Business API (webhook entrante → `routeTicket`) y SendGrid/SES con Inbound Parse para que `soporte@` cree tickets automáticamente; `EmailLog` ya modela la salida.
-3. **Enrutamiento como servicio** — extraer `routing.ts` a NestJS/Go con cola y reintentos.
+1. **Base de datos** — PostgreSQL 16 + pgvector: **ya preparado** (`prisma/schema.postgres.prisma`, `pg-init.sql`, `kb-search.ts`, backfill). Solo sigue `docs/MIGRACION-POSTGRES.md`.
+2. **Canales reales** — Twilio WhatsApp Business API y SendGrid/SES con Inbound Parse: **ya implementados** como adaptadores + webhooks (`src/lib/providers`, `src/lib/intake.ts`). Solo configúralos con `docs/INTEGRACIONES.md`.
+3. **Enrutamiento como servicio** — extraer `routing.ts` a NestJS/Go con cola y reintentos (la lógica ya está aislada y la usa `intake.ts`).
 4. **Autenticación** — multi-rol (agente/admin/cliente) con NextAuth (dependencia ya presente).
 5. **Observabilidad** — métricas de SLA (primera respuesta ya modelada con `firstResponseAt`).

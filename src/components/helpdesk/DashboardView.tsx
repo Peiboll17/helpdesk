@@ -16,11 +16,12 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts'
-import { Inbox, CheckCircle2, Timer, Smile, BookOpen, Mail, Zap, Activity } from 'lucide-react'
+import { Inbox, CheckCircle2, Timer, Smile, BookOpen, Mail, Zap, Activity, Plug, CircleDot } from 'lucide-react'
 import { api, type StatsDTO } from '@/lib/client-types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
 import { SOURCE_LABELS, STATUS_LABELS, timeAgo } from '@/lib/constants'
 import { AgentAvatar } from './bits'
 
@@ -43,6 +44,18 @@ export default function DashboardView() {
     queryKey: ['stats'],
     queryFn: () => api.get<StatsDTO>('/api/stats'),
     refetchInterval: 8000, // casi tiempo real; los sockets lo refrescan al instante
+  })
+
+  const { data: integrations } = useQuery({
+    queryKey: ['integrations'],
+    queryFn: () =>
+      api.get<{
+        email: { label: string; configured: boolean }
+        whatsapp: { label: string; configured: boolean }
+        webhooks: { whatsapp: { path: string; protected: boolean }; emailInbound: { path: string; protected: boolean } }
+        database: { engine: string; vectorSearch: boolean }
+      }>('/api/integrations/status'),
+    refetchInterval: 30000,
   })
 
   if (isLoading || !stats) {
@@ -247,6 +260,55 @@ export default function DashboardView() {
                 <div className="mt-1 text-lg font-bold tabular-nums">{stats.emailsSent}</div>
                 <div className="text-[10px] text-muted-foreground">emails enviados</div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                <Plug className="h-4 w-4 text-primary" /> Integraciones
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {integrations ? (
+                <>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <CircleDot className="h-3 w-3 shrink-0 text-muted-foreground" /> Email
+                    </span>
+                    <Badge
+                      variant={integrations.email.configured ? 'default' : 'secondary'}
+                      className="text-[10px] shrink-0"
+                    >
+                      {integrations.email.label}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <CircleDot className="h-3 w-3 shrink-0 text-muted-foreground" /> WhatsApp
+                    </span>
+                    <Badge
+                      variant={integrations.whatsapp.configured ? 'default' : 'secondary'}
+                      className="text-[10px] shrink-0"
+                    >
+                      {integrations.whatsapp.label}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <CircleDot className="h-3 w-3 shrink-0 text-muted-foreground" /> Búsqueda KB
+                    </span>
+                    <Badge variant={integrations.database.vectorSearch ? 'default' : 'secondary'} className="text-[10px] shrink-0">
+                      {integrations.database.vectorSearch ? 'pgvector' : 'léxica local'}
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground pt-1 border-t">
+                    Webhooks: {integrations.webhooks.whatsapp.path} · {integrations.webhooks.emailInbound.path}
+                  </p>
+                </>
+              ) : (
+                <div className="h-16 bg-muted animate-pulse rounded" />
+              )}
             </CardContent>
           </Card>
 

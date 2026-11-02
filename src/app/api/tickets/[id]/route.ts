@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { emitEvent } from '@/lib/realtime'
 import { PRIORITY_LABELS } from '@/lib/constants'
+import { deliverEmail } from '@/lib/providers/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -128,6 +129,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   await emitEvent('tickets:changed', { id })
   await emitEvent('ticket:updated', { id, ref: updated.ref })
+
+  // Envío real de la encuesta CSAT (si hay credenciales de SendGrid)
+  if (csatNow) {
+    void deliverEmail({
+      to: updated.customerEmail,
+      subject: `¿Cómo fue tu experiencia? (1 clic) · ${updated.ref}`,
+      body: `Hola ${updated.customerName.split(' ')[0]}, ¿resolvimos tu consulta "${updated.subject}"? Responde con un solo clic: 😊 Feliz · 😐 Neutral · ☹️ Triste`,
+      kind: 'CSAT_REQUEST',
+      ref: updated.ref,
+    })
+  }
 
   return NextResponse.json(updated)
 }

@@ -1,0 +1,124 @@
+// ============================================================
+// NexoDesk · Esquema de PRODUCCIÓN (PostgreSQL 16 + pgvector)
+// ------------------------------------------------------------
+// Misma forma que schema.prisma (SQLite dev) con tres diferencias:
+//   · provider = "postgresql"
+//   · Ticket.customerPhone índice para el matching de WhatsApp
+//   · KBArticle.embedding  vector(1536)  → búsqueda semántica real
+//     (campo Unsupported: se escribe/lee con SQL crudo vía
+//      src/lib/kb-search.ts y scripts/backfill-embeddings.ts)
+//
+// Uso (ver docs/MIGRACION-POSTGRES.md):
+//   1. Base con la extensión pgvector instalada (prisma/pg-init.sql §1)
+//   2. DATABASE_URL=postgresql://… en .env
+//   3. npm run db:push:pg
+//   4. prisma/pg-init.sql §2 (índice HNSW)  ·  npm run kb:backfill
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  specialties String
+  color       String   @default("#10b981")
+  isActive    Boolean  @default(true)
+  tickets     Ticket[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Ticket {
+  id              String    @id @default(cuid())
+  ref             String    @unique
+  subject         String
+  description     String
+  status          String    @default("ABIERTO")
+  priority        String    @default("MEDIA")
+  source          String    @default("EMAIL")
+  category        String    @default("GENERAL")
+  customerName    String
+  customerEmail   String
+  customerPhone   String?
+  assigneeId      String?
+  assignee        Agent?    @relation(fields: [assigneeId], references: [id])
+  routingReason   String?
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  csatScore       Int?
+  csatComment     String?
+  csatSentAt      DateTime?
+  visitorId       String?
+  messages        Message[]
+  notes           InternalNote[]
+  emails          EmailLog[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([assigneeId])
+  @@index([source])
+  @@index([customerEmail])
+  @@index([customerPhone])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorType String
+  authorName String
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model InternalNote {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorName String
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model KBArticle {
+  id        String                        @id @default(cuid())
+  slug      String                        @unique
+  title     String
+  content   String
+  tags      String                        @default("")
+  keywords  String                        @default("")
+  views     Int                           @default(0)
+  embedding Unsupported("vector(1536)")? // pgvector: solo via SQL crudo
+  createdAt DateTime                      @default(now())
+  updatedAt DateTime                      @updatedAt
+
+  @@index([slug])
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  toEmail   String
+  subject   String
+  body      String
+  kind      String
+  ticketId  String?
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  provider  String   @default("sendgrid-simulado")
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}

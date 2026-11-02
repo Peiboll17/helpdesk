@@ -8,7 +8,7 @@
 // ============================================================
 
 import ZAI from 'z-ai-web-dev-sdk'
-import { searchArticles } from './search'
+import { searchKB } from './kb-search'
 import type { SearchableArticle } from './search'
 
 export interface CopilotDraft {
@@ -21,11 +21,12 @@ export async function generateAgentDraft(
   subject: string,
   description: string,
   thread: { authorName: string; authorType: string; body: string }[],
-  kbArticles: SearchableArticle[],
+  _kbArticles?: SearchableArticle[], // deprecado: el motor (vectorial/léxico) vive en kb-search.ts
   agentName?: string
 ): Promise<CopilotDraft> {
   // 1. Búsqueda semántica en la KB con la duda del cliente
-  const results = searchArticles(`${subject} ${description}`, kbArticles, 3)
+  //    (pgvector en producción · motor léxico local en desarrollo)
+  const results = await searchKB(`${subject} ${description}`, 3)
   const sources = results.map((r) => ({ slug: r.article.slug, title: r.article.title }))
   const kbContext = results
     .map((r, i) => `--- Artículo ${i + 1}: "${r.article.title}" ---\n${r.article.content.slice(0, 700)}`)

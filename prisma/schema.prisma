@@ -38,6 +38,7 @@ model Ticket {
   category       String    @default("GENERAL") // FINANZAS | TECNICO | CUENTAS | GENERAL
   customerName   String
   customerEmail  String
+  customerPhone  String?   // teléfono del cliente (canal WhatsApp; formato E.164)
   assigneeId     String?
   assignee       Agent?    @relation(fields: [assigneeId], references: [id])
   routingReason  String?   // explicación del motor de enrutamiento
