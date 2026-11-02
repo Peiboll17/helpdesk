@@ -42,6 +42,9 @@ if [ ! -f /opt/nexodesk/.env ]; then
   echo ""
 else
   echo "  (ya existía: no se toca)"
+  for K in DATABASE_URL REALTIME_URL INBOUND_WEBHOOK_SECRET; do
+    sudo grep -q "^${K}=" /opt/nexodesk/.env || echo "  ⚠ OJO: a tu .env le falta ${K} · avísame en el chat"
+  done
 fi
 
 echo "── 4/7 · Instalando la app (standalone)…"
@@ -69,6 +72,23 @@ if ! command -v bun >/dev/null 2>&1; then
   sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun
 fi
 echo "  bun $(bun --version)"
+
+# ── Prueba de arranque: levanta la app 25 s en el puerto 3100 y la para.
+#    Detecta YA un build roto (chunk/engine que falten) sin esperar a Fase 5.
+echo "── Prueba de arranque de la app (unos 15 s)…"
+sudo bash -c '
+cd /opt/nexodesk/current
+set -a; . /opt/nexodesk/.env; set +a
+export PORT=3100 NEXT_TELEMETRY_DISABLED=1
+timeout 25 node server.js > /tmp/nx-smoke.log 2>&1 &
+SPID=$!
+sleep 9
+C=$(node -e "fetch(\"http://127.0.0.1:3100/\").then(r=>process.stdout.write(String(r.status))).catch(()=>process.stdout.write(\"000\"))" 2>/dev/null || echo 000)
+kill $SPID 2>/dev/null || true
+pkill -P $SPID 2>/dev/null || true
+echo "  HTTP / -> $C  (200 o 307 = arranca bien)"
+'
+tail -4 /tmp/nx-smoke.log 2>/dev/null | sed "s/^/  │ /" || true
 
 # Si los servicios ya existían (redespliegue), reinícialos
 sudo -n systemctl restart nexodesk nexodesk-realtime 2>/dev/null || true

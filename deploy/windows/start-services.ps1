@@ -25,7 +25,10 @@ Write-Host ">> Copiando unidades systemd…"
 ssh $Vps "mkdir -p nx-deploy"
 scp "deploy\nexodesk.service" "deploy\nexodesk-realtime.service" "${Vps}:nx-deploy/"
 Assert-Last
-ssh $Vps "sudo -n cp nx-deploy/nexodesk.service nx-deploy/nexodesk-realtime.service /etc/systemd/system/ && sudo -n systemctl daemon-reload && sudo -n systemctl enable --now nexodesk nexodesk-realtime"
+# Las unidades se copian pasando antes por tr -d '\r': si git las dejó
+# con saltos de línea de Windows (CRLF), systemd interpretaría el \r
+# como parte del valor (p.ej. SOCKET_PATH="/socket.io\r" rompería el WS).
+ssh $Vps "tr -d '\r' < nx-deploy/nexodesk.service > /tmp/nx-app.service && tr -d '\r' < nx-deploy/nexodesk-realtime.service > /tmp/nx-rt.service && sudo -n cp /tmp/nx-app.service /etc/systemd/system/nexodesk.service && sudo -n cp /tmp/nx-rt.service /etc/systemd/system/nexodesk-realtime.service && rm -f /tmp/nx-app.service /tmp/nx-rt.service && sudo -n systemctl daemon-reload && sudo -n systemctl enable --now nexodesk nexodesk-realtime"
 Assert-Last
 
 Write-Host ">> Esperando arranque (5 s)…"

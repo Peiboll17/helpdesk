@@ -23,9 +23,12 @@ if (-not $VpsIp) { $VpsIp = Read-Host "IP externa de tu VPS" }
 $Vps = "$VpsUser@$VpsIp"
 
 Write-Host ">> Leyendo DATABASE_URL de la VPS (no se mostrara)…"
-$raw = ssh $Vps "sudo -n grep '^DATABASE_URL' /opt/nexodesk/.env"
+$raw = "$((ssh $Vps "sudo -n grep '^DATABASE_URL' /opt/nexodesk/.env"))".Trim()
 if (-not $raw) { throw "No pude leer /opt/nexodesk/.env (fallo de sudo? · reintenta este script)" }
-$env:DATABASE_URL = $raw -replace '@(127\.0\.0\.1|localhost):3306/', '@127.0.0.1:3307/'
+# quitar el prefijo DATABASE_URL= y las comillas que rodean al valor
+$url = ($raw -replace '^\s*DATABASE_URL\s*=\s*', '') -replace '^"(.*)"\s*$', '$1'
+if ($url -notmatch '^mysql://') { throw "La DATABASE_URL de la VPS no se pudo interpretar · pega este error en el chat" }
+$env:DATABASE_URL = $url -replace '@(127\.0\.0\.1|localhost):3306/', '@127.0.0.1:3307/'
 
 Write-Host ">> Abriendo tunel SSH 3307 -> 3306…"
 $tunel = Start-Process ssh -ArgumentList "-N","-L","3307:127.0.0.1:3306",$Vps -PassThru -WindowStyle Hidden

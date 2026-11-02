@@ -26,6 +26,8 @@ if (-not $VpsIp) { $VpsIp = Read-Host "IP externa de tu VPS" }
 $Vps = "$VpsUser@$VpsIp"
 Write-Host ">> Destino: $Vps"
 
+if (-not (Get-Command tar -ErrorAction SilentlyContinue)) { throw "tar no esta disponible (lo trae Windows 10 desde la version 1803). Pega este error en el chat." }
+
 # ── 0 · Comprobaciones locales ──────────────────────────────
 if (-not (Test-Path ".next\standalone\server.js")) { throw "Falta .next\standalone\server.js · ejecuta antes:  bun run build" }
 if (-not (Test-Path ".next\standalone\node_modules\.prisma\client\libquery_engine-debian-openssl-3.0.x.so.node")) { throw "Falta el motor Linux de Prisma · ejecuta:  bun run db:generate:mysql   y repite   bun run build" }
